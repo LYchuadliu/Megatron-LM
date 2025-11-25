@@ -1,0 +1,43 @@
+name: Build and Push Megatron-LM Multimodal Docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 拉代码库
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # （可选）安装nvidia-docker和配置GPU支持（通常跑构建即可，不实际启动GPU容器）
+      - name: Setup NVIDIA Docker (如果需要测试GPU代码)
+        run: curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+
+      # 构建 docker 镜像
+      - name: Build Docker image
+        working-directory: examples/multimodal
+        run: |
+          docker build -t megatron-lm-multimodal:${{ github.sha }} .
+
+      # （可选）推送到你的Docker Hub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker image
+        run: |
+          docker tag megatron-lm-multimodal:${{ github.sha }} yourdockerhub/megatron-lm-multimodal:latest
+          docker push yourdockerhub/megatron-lm-multimodal:latest
+
+      # （可选）自动测试镜像
+      - name: Test container
+        run: |
+          docker run --rm megatron-lm-multimodal:${{ github.sha }} /bin/bash -c "python -c 'import torch; print(torch.__version__)'"
